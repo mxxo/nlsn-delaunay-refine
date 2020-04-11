@@ -59,7 +59,7 @@ impl Triangulator {
         Triangulator {
             vertices: Vertex::from_coordinates(vertices_coordinates),
             triangles: HashSet::new(),
-            conflict_map: Vec::new(),
+            conflict_map: HashMap::new(),
             adjacency: HashMap::new(),
         }
     }
@@ -93,14 +93,17 @@ impl Triangulator {
         let tghost_2 = Rc::new(Triangle::new(&v2, &v3, &ghost_vertex));
         let tghost_3 = Rc::new(Triangle::new(&v3, &v1, &ghost_vertex));
 
+        self.include_inner_adjacency(&solid_triangle);
+        self.include_inner_adjacency(&tghost_1);
+        self.include_inner_adjacency(&tghost_2);
+        self.include_inner_adjacency(&tghost_3);
+        
         self.include_triangle(solid_triangle);
         self.include_triangle(tghost_1);
         self.include_triangle(tghost_2);
         self.include_triangle(tghost_3);
-
-        self.triangles.insert(triangle);
     }
-
+    
     fn handle_conflict(&mut self) {
 //        let (triangle, vertex) = self.conflict_map.pop().unwrap();
 
@@ -113,10 +116,21 @@ impl Triangulator {
         }) {
             Some(index) => {
                 let conflicting_vertex = self.vertices.remove(index);
-                self.conflict_map.inser(triangle, conflicting_vertex);
+                self.conflict_map.insert(triangle, conflicting_vertex);
             }
-            None => {}
+            None => {
+                self.triangles.insert(triangle);
+            }
         }
+    }
+
+    fn include_inner_adjacency(&mut self, triangle: &Rc<Triangle>) {
+        let v1 = &triangle.v1;
+        let v2 = &triangle.v2;
+        let v3 = &triangle.v3;
+        self.adjacency.insert((Rc::clone(v1),Rc::clone(v2)), Rc::clone(triangle));
+        self.adjacency.insert((Rc::clone(v2),Rc::clone(v3)), Rc::clone(triangle));
+        self.adjacency.insert((Rc::clone(v3),Rc::clone(v1)), Rc::clone(triangle));
     }
 }
 
@@ -162,7 +176,6 @@ mod constructor {
         builder.init();
         println!("{}", builder);
         assert_eq!(builder.vertices.len(), 0);
-        assert_eq!(builder.triangles.len(), 3);
-        assert_eq!(builder.conflict_map.len(), 1);
+        assert_eq!(builder.triangles.len() + builder.conflict_map.len(), 4);
     }
 }
