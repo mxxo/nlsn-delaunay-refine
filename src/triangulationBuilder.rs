@@ -25,9 +25,9 @@ inside the circuncircle of the triangle.  */
 
 pub struct Triangulator {
     vertices: Vec<Rc<Vertex>>,
-    triangles: HashSet<Triangle>,
-    conflict_map: Vec<(Triangle, Rc<Vertex>)>,
-    adjacency: HashMap<(Rc<Vertex>, Rc<Vertex>), Rc<Vertex>>
+    triangles: HashSet<Rc<Triangle>>,
+    conflict_map: HashMap<Rc<Triangle>, Rc<Vertex>>,
+    adjacency: HashMap<(Rc<Vertex>, Rc<Vertex>), Rc<Triangle>>
 }
 
 impl fmt::Display for Triangulator {
@@ -78,7 +78,7 @@ impl Triangulator {
                     break;
                 }
                 Orientation::Clockwise => {
-//                    mem::swap(&mut v2, &mut v3);
+                    mem::swap(&mut v2, &mut v3);
                     break;
                 }
                 Orientation::Colinear => {
@@ -88,15 +88,17 @@ impl Triangulator {
             }; /* end - match orient_2d */
         } /* end - loop */
 
-        let solid_triangle = Triangle::new(&v1, &v2, &v3);
-        let tghost_1 = Triangle::new(&v1, &v2, &ghost_vertex);
-        let tghost_2 = Triangle::new(&v2, &v3, &ghost_vertex);
-        let tghost_3 = Triangle::new(&v3, &v1, &ghost_vertex);
+        let solid_triangle = Rc::new(Triangle::new(&v1, &v2, &v3));
+        let tghost_1 = Rc::new(Triangle::new(&v1, &v2, &ghost_vertex));
+        let tghost_2 = Rc::new(Triangle::new(&v2, &v3, &ghost_vertex));
+        let tghost_3 = Rc::new(Triangle::new(&v3, &v1, &ghost_vertex));
 
-        self.handle_triangle(solid_triangle);
-        self.handle_triangle(tghost_1);
-        self.handle_triangle(tghost_2);
-        self.handle_triangle(tghost_3);
+        self.include_triangle(solid_triangle);
+        self.include_triangle(tghost_1);
+        self.include_triangle(tghost_2);
+        self.include_triangle(tghost_3);
+
+        self.triangles.insert(triangle);
     }
 
     fn handle_conflict(&mut self) {
@@ -104,18 +106,16 @@ impl Triangulator {
 
     }
 
-    fn handle_triangle(&mut self, triangle: Triangle) {
+    fn include_triangle(&mut self, triangle: Rc<Triangle>) {
         match self.vertices.iter().position(|vertex| {
             /* searchs for conflicting vertex */
             triangle.encircles(vertex) == Continence::Inside
         }) {
             Some(index) => {
                 let conflicting_vertex = self.vertices.remove(index);
-                self.conflict_map.push((triangle, conflicting_vertex));
+                self.conflict_map.inser(triangle, conflicting_vertex);
             }
-            None => {
-                self.triangles.insert(triangle);
-            }
+            None => {}
         }
     }
 }
@@ -134,6 +134,7 @@ mod constructor {
         vertex_indices.push(1.0);
         vertex_indices.push(2.0);
         let builder = Triangulator::from_vertices(vertex_indices);
+        println!("{}", builder);
         assert_eq!(builder.vertices.len(), 3);
     }
 
